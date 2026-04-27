@@ -72,18 +72,21 @@
             <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
                 <h3 class="font-bold text-gray-800 mb-3"><i class="fas fa-random text-purple-500 mr-2"></i>마니또 관리</h3>
                 <p class="text-sm text-gray-600 mb-4">현재 명단을 바탕으로 마니또를 무작위 배정합니다. (자기 자신이 뽑히지 않도록 자동 설계됨)</p>
-                <div class="flex gap-2">
-                    <button onclick="assignManito()" class="flex-1 bg-purple-600 text-white py-3 rounded-lg font-bold shadow active:bg-purple-700"><i class="fas fa-magic mr-2"></i>마니또 추첨하기</button>
+                <div class="flex gap-2 mb-3">
+                    <button onclick="assignManito()" class="flex-1 bg-purple-600 text-white py-3 rounded-lg font-bold shadow active:bg-purple-700"><i class="fas fa-magic mr-2"></i>추첨하기</button>
                     <button onclick="resetManito()" class="bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-bold active:bg-gray-300"><i class="fas fa-trash-alt"></i> 초기화</button>
                 </div>
-                <button onclick="showManitoStatus()" class="w-full mt-3 bg-purple-100 text-purple-700 py-3 rounded-lg font-bold shadow-sm active:bg-purple-200"><i class="fas fa-search mr-2"></i>마니또 활동 현황 보기</button>
+                <button onclick="showManitoStatus()" class="w-full bg-purple-100 text-purple-700 py-3 rounded-lg font-bold shadow-sm active:bg-purple-200"><i class="fas fa-search mr-2"></i>마니또 활동 현황 보기</button>
             </div>
 
             <!-- Challenge Management -->
             <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
                 <h3 class="font-bold text-gray-800 mb-3"><i class="fas fa-flag-checkered text-green-500 mr-2"></i>일주일 도전 관리</h3>
                 <p class="text-sm text-gray-600 mb-4">학생들이 설정한 일주일 도전 목표와 달성 현황을 한눈에 확인합니다.</p>
-                <button onclick="showChallengeStatus()" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold shadow active:bg-green-700"><i class="fas fa-chart-bar mr-2"></i>도전 현황 보기</button>
+                <div class="flex gap-2">
+                    <button onclick="showChallengeStatus()" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold shadow active:bg-green-700"><i class="fas fa-chart-bar mr-2"></i>현황 보기</button>
+                    <button onclick="resetChallenge()" class="bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-bold active:bg-gray-300"><i class="fas fa-trash-alt"></i> 초기화</button>
+                </div>
             </div>
 
             <!-- Admin Settings -->
@@ -627,6 +630,29 @@
         showModal(html);
     }
 
+    function resetChallenge() {
+        showModal(`
+            <div class="p-6 text-center">
+                <h2 class="text-lg font-bold mb-2">일주일 도전 초기화</h2>
+                <p class="text-sm text-gray-600 mb-6">모든 학생의 도전 목표와 체크 기록을 지우시겠습니까?</p>
+                <div class="flex gap-2">
+                    <button onclick="closeModal()" class="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold">취소</button>
+                    <button onclick="confirmResetChallenge()" class="flex-1 py-3 bg-gray-800 text-white rounded-xl font-bold">초기화</button>
+                </div>
+            </div>
+        `);
+    }
+
+    function confirmResetChallenge() {
+        appData.students.forEach(s => {
+            s.challenge = '';
+            s.challengeChecks = [false, false, false, false, false, false, false];
+        });
+        saveData();
+        closeModal();
+        showToast('일주일 도전 데이터가 초기화되었습니다.');
+    }
+
     function assignManito() {
         if(appData.students.length < 2) { showToast('학생이 2명 이상이어야 합니다.', 'error'); return; }
         let shuffled = [...appData.students].sort(() => Math.random() - 0.5);
@@ -791,7 +817,6 @@
 
     /* ==========================================
        HTML 내 이벤트 바인딩을 위한 전역 함수 등록
-       (type="module" 에서는 전역으로 노출시켜야 onclick이 동작함)
     ========================================== */
     window.requestAdminAccess = requestAdminAccess;
     window.verifyAdminPin = verifyAdminPin;
@@ -811,6 +836,8 @@
     window.confirmResetManito = confirmResetManito;
     window.showManitoStatus = showManitoStatus;
     window.showChallengeStatus = showChallengeStatus;
+    window.resetChallenge = resetChallenge;
+    window.confirmResetChallenge = confirmResetChallenge;
     window.logoutStudent = logoutStudent;
     window.switchStudentTab = switchStudentTab;
     window.openManitoLogModal = openManitoLogModal;
