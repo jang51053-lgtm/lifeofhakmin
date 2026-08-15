@@ -3,6 +3,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { doc as fsDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { db, useFirebase, studentsCol, configDocRef, legacyDocRef } from './firebaseClient.js';
+import { todayStr } from './dateUtils.js';
 
 /* ==========================================
    DATA & STATE MANAGEMENT
@@ -196,7 +197,8 @@ export async function updateConfig(patch) {
 ========================================== */
 export async function addChecklistItem(label) {
     const items = [...(state.classConfig.checklistItems || [])];
-    items.push({ id: generateId(), label });
+    // createdAt: 이 항목이 활성화된 날짜. 통계에서 "며칠 동안 몇 % 실천했는지" 계산할 때 기준이 됩니다.
+    items.push({ id: generateId(), label, createdAt: todayStr() });
     await updateConfig({ checklistItems: items });
 }
 

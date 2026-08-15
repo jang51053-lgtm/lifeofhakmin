@@ -25,3 +25,11 @@ export function formatMonthDay(dateStr) {
     const [, m, d] = dateStr.split('-');
     return `${parseInt(m, 10)}/${parseInt(d, 10)}`;
 }
+
+// startStr, endStr 둘 다 포함한 일수. 통계에서 "항목이 활성화된 날수"를 셀 때 씁니다.
+export function daysBetweenInclusive(startStr, endStr) {
+    const start = new Date(startStr + 'T00:00:00');
+    const end = new Date(endStr + 'T00:00:00');
+    const diff = Math.round((end - start) / 86400000);
+    return Math.max(1, diff + 1);
+}

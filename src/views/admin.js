@@ -4,7 +4,7 @@ import {
     addChecklistItem, updateChecklistItemLabel, removeChecklistItem, clearAllChecklists
 } from '../store.js';
 import { showModal, closeModal, showToast } from '../ui.js';
-import { todayStr } from '../dateUtils.js';
+import { todayStr, daysBetweenInclusive } from '../dateUtils.js';
 
 /* ==========================================
    STUDENT MANAGEMENT
@@ -337,6 +337,109 @@ export function showChecklistStatus() {
     showModal(html);
 }
 
+function itemTodayRate(item, students) {
+    const today = todayStr();
+    const doneCount = students.filter(s => !!(s.checklist[item.id] && s.checklist[item.id][today])).length;
+    const total = students.length;
+    return { doneCount, total, pct: total === 0 ? 0 : Math.round((doneCount / total) * 100) };
+}
+
+// 항목이 활성화된 날부터 오늘까지 대비, 학생이 그 항목을 체크한 날의 비율.
+// 여러 항목의 비율을 다시 합산해서 학생 1명의 "종합 달성률"을 냅니다.
+function studentOverallRate(student, items) {
+    if (items.length === 0) return 0;
+    let totalPossible = 0, totalDone = 0;
+    const today = todayStr();
+    items.forEach(item => {
+        const activeDays = daysBetweenInclusive(item.createdAt || today, today);
+        totalPossible += activeDays;
+        const record = student.checklist[item.id] || {};
+        totalDone += Object.values(record).filter(Boolean).length;
+    });
+    return totalPossible === 0 ? 0 : Math.round((totalDone / totalPossible) * 100);
+}
+
+function barColorFor(pct) {
+    if (pct >= 80) return 'bg-green-500';
+    if (pct >= 50) return 'bg-blue-500';
+    return 'bg-red-400';
+}
+
+export function showChecklistStats() {
+    const items = state.classConfig.checklistItems || [];
+    const students = getSortedStudents();
+    let html = `
+        <div class="p-6 flex flex-col max-h-[80vh] bg-gray-50">
+            <h2 class="text-xl font-bold mb-4 flex items-center text-gray-800"><i class="fas fa-chart-pie text-indigo-500 mr-2"></i>체크리스트 통계</h2>
+            <div class="flex-1 overflow-y-auto space-y-5 pr-1">
+    `;
+    if (items.length === 0) {
+        html += `<p class="text-gray-500 text-center py-4 bg-white rounded-xl shadow-sm">등록된 체크리스트 항목이 없습니다. 먼저 항목을 추가해주세요.</p>`;
+    } else if (students.length === 0) {
+        html += `<p class="text-gray-500 text-center py-4 bg-white rounded-xl shadow-sm">등록된 학생이 없습니다.</p>`;
+    } else {
+        const today = todayStr();
+        const totalPossibleToday = students.length * items.length;
+        const totalDoneToday = students.reduce((sum, s) => sum + items.filter(item => !!(s.checklist[item.id] && s.checklist[item.id][today])).length, 0);
+        const overallTodayPct = totalPossibleToday === 0 ? 0 : Math.round((totalDoneToday / totalPossibleToday) * 100);
+
+        html += `
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm text-center">
+                <div class="text-xs text-gray-500 mb-1">오늘 반 전체 달성률</div>
+                <div class="text-4xl font-black text-indigo-600">${overallTodayPct}%</div>
+            </div>
+        `;
+
+        let itemBarsHtml = '';
+        items.forEach(item => {
+            const { doneCount, total, pct } = itemTodayRate(item, students);
+            itemBarsHtml += `
+                <div class="mb-3 last:mb-0">
+                    <div class="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>${item.label}</span>
+                        <span class="font-bold">${doneCount}/${total} (${pct}%)</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-3">
+                        <div class="${barColorFor(pct)} h-3 rounded-full" style="width:${pct}%"></div>
+                    </div>
+                </div>
+            `;
+        });
+        html += `
+            <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div class="font-bold text-gray-800 mb-3">항목별 오늘 달성률</div>
+                ${itemBarsHtml}
+            </div>
+        `;
+
+        const ranked = students
+            .map(s => ({ student: s, pct: studentOverallRate(s, items) }))
+            .sort((a, b) => a.pct - b.pct);
+        let studentBarsHtml = '';
+        ranked.forEach(({ student, pct }) => {
+            studentBarsHtml += `
+                <div class="mb-3 last:mb-0">
+                    <div class="flex justify-between text-xs text-gray-600 mb-1">
+                        <span class="font-bold text-gray-800">${student.name}</span>
+                        <span class="font-bold">${pct}%</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-3">
+                        <div class="${barColorFor(pct)} h-3 rounded-full" style="width:${pct}%"></div>
+                    </div>
+                </div>
+            `;
+        });
+        html += `
+            <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div class="font-bold text-gray-800 mb-3">학생별 누적 달성률</div>
+                ${studentBarsHtml}
+            </div>
+        `;
+    }
+    html += `</div><button onclick="closeModal()" class="w-full mt-5 py-3 bg-gray-800 text-white rounded-xl font-bold shadow active:bg-gray-900">닫기</button></div>`;
+    showModal(html);
+}
+
 export function resetChecklistData() {
     showModal(`
         <div class="p-6 text-center">
@@ -361,6 +464,6 @@ export const handlers = {
     deleteStudent, confirmDeleteStudent, resetStudentPin, changeAdminPin,
     resetManito, confirmResetManito, showManitoStatus, assignManito,
     openChecklistItemsModal, addChecklistItemFromModal, editChecklistItem, saveChecklistItemLabel,
-    deleteChecklistItem, confirmDeleteChecklistItem, showChecklistStatus,
+    deleteChecklistItem, confirmDeleteChecklistItem, showChecklistStatus, showChecklistStats,
     resetChecklistData, confirmResetChecklistData
 };
